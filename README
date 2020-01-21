@@ -50,7 +50,17 @@ DLOAD protocol.  Without that information, this program would not have been
 possible.  This program does not use any code from the "80 Micro" article.
 
 Additional information can be found here: 
+
 https://pairlist5.pair.net/pipermail/coco/2020-January/173451.html
+
+-----------------
+ INTERFACE CABLE
+-----------------
+You're going to need to build a 4-pin DIN-to-DB-9 serial cable.  Depending on how
+you wire the cable, you may or may not need a Null MODEM Adapter.  You can find 
+instructions on building such a cable here:
+
+http://www.colorcomputer.net/serialcable.php
 
 -------------
  COMPILATION
