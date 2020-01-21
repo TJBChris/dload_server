@@ -89,6 +89,18 @@ the -DIR command-mode option to test if you don't have any files to use.
 **     as part of the trasnfer process allowing UNIX-style line feeds.    **
 ****************************************************************************
 
+-------------
+ LIMITATIONS
+-------------
+
+This code will hang in situations where the CoCo terminates abruptly without 
+sending an error.  This occurs when a ?DS ERROR is encountered (caused
+by send a program with lines that do not start with a line number).  If this
+happens, quit the server and restart it.  
+
+DLOADM is not supported. (It's untested, I don't expect it to work.)
+Sending tokenized BASIC programs has not been tested.
+
 --------
  FUTURE
 --------
@@ -99,6 +111,10 @@ contribute to this or clone it and make it better, you're welcome to do so withi
 the terms of the license.  
 
 That said:
+Adding a read timeout for transfer operations - right now if the CoCo bails without
+sending the server notification, the server remains stuck in transfer mode.  (See
+LIMITATIONS.)
+
 Functionality allowing the Color Computer user to naviagte the host filesystem 
 via the DLOAD command is desired, as is the ability to load files with names 
 greater than 8 characters.

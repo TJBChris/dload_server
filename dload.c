@@ -96,7 +96,7 @@ char *argv[];
         char portname[127];
 	int serial;
 
-	/* Print some GNU GPLv3-styl eintro text. */
+	/* Print some GNU GPLv3-style intro text. */
 	printf("\ndload_server Version: %s \nA DLOAD server for the TRS-80 Color Computer 1 and 2.  ", VERSION);
 	printf("\nCopyright (C) 2020 Christopher Hyzer.\n\n");
 
@@ -114,8 +114,6 @@ char *argv[];
 
 	/* open the serial port */
 	serial = openSerial(portname);
-
-	/* Outbound file handle. */
 
 	printf("Awaiting handshake...\n");
 	
