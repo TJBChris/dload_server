@@ -1,0 +1,129 @@
+DLOAD Server 01.00.00
+By: Christopher Hyzer - 12/2019
+
+-------------
+ DESCRIPTION
+-------------
+
+This code implements a server for the Tandy Color Computer DLOAD command in C.
+It is intended to be compiled and run on older systems with older C standards
+in place, and is therefore not to current standards. It runs at 1200 baud,
+but you can change the openSerial routine and re-compile if you want 300 baud. 
+
+The intended platform was XENIX on the TRS-80 Model 16/16B/Tandy 6000, but it 
+should be portable to any UNIX-like platform with some modification.  Linux
+support is baked in, but your mileage may vary based on the distro and your
+system's configuration.  You'll see K&R function delcarations, a lack of 
+function prototypes, constants that aren't, etc.  This is all due to the
+intended target platform (a C implmentation from the early 1980s).
+
+** THIS PROGRAM DOES NOT WORK WITH THE COLOR COMPUTER 3 **
+The DLOAD command functionality was removed in the Color Computer 3.  While the
+command is still defined, its code has been replaced with reset routines.
+
+---------
+ SUPPORT
+---------
+As-noted, this code is unsupported in every sense of the word.  I'm unable to 
+provide specific support to getting it to compile or run on your system. 
+
+I should note this project was intended to be a learning experience for both
+the CoCo and TRS-80 Model 16 running TRS-XENIX.  Just to see if I could do it.
+Linux support was added based on community enthusiasm for this, but is a hack at best.
+
+As a result, this code was developed as a prototype and therefore should not be run with
+privileged user (root) authority;  it does not perform sanity checking on input,
+for example. Some portions (especially some of the protocol error routines)
+are untested and likely non-functional.  To make it run, you'll want to grant (chmod)
+your non-privileged ID read/write access (probably 666) on whatever serial device
+you're using.  USB-to-Serial adapters are particularly finicky.
+
+------------------
+ ACKNOWLEDGEMENTS
+------------------
+
+This program was inspired by Frank Bogardus' article, CC DLOAD, which appeared
+in the March, 1983 issue of "80 Micro".  The article can be found on page 190.
+This article includes a server application for the TRS-80 Model I with a 
+listing in assembly language for that system, as well as his knowledge of the
+DLOAD protocol.  Without that information, this program would not have been
+possible.  This program does not use any code from the "80 Micro" article.
+
+Additional information can be found here: 
+https://pairlist5.pair.net/pipermail/coco/2020-January/173451.html
+
+-------------
+ COMPILATION
+-------------
+To compile on TRS-XENIX, use:
+cc -o dload dload.c
+
+To compile on Linux, use:
+gcc -o dload -w dload.c
+
+---------------
+ FUNCTIONALITY
+---------------
+
+To run the server, execute:
+./dload <path-to-port>
+
+For example: ./dload /dev/tty02 (for serial channel B on a Model 16/16B/Tandy 6000).
+
+At the moment, the server serves only DLOAD command requests to retrieve 
+BASIC programs stored in ASCII format on the host.  DLOADM and machine language 
+is not currently supported.  You can issue commands to the server and have
+the result sent back to the client as a BASIC program.  To do this,
+issue the command to DLOAD as a filename, with a hyphen as the prefix:
+
+DLOAD"-DIR"
+
+Only -DIR, for getting a directory listing, is supported at this time.
+
+The included TEST file contains a short BASIC program in ASCII format that should
+work serve as a good test for the DLOAD server's functionality.  You can also use
+the -DIR command-mode option to test if you don't have any files to use.
+
+****************************************************************************
+** The CoCo expects line feeds as \r.  This program will convert \n to \r **
+**     as part of the trasnfer process allowing UNIX-style line feeds.    **
+****************************************************************************
+
+--------
+ FUTURE
+--------
+
+Future items may/may not happen.  The same goes for bug fixes or anything else;
+it'll come down to my interest level and competing projects.  If you wish to 
+contribute to this or clone it and make it better, you're welcome to do so within
+the terms of the license.  
+
+That said:
+Functionality allowing the Color Computer user to naviagte the host filesystem 
+via the DLOAD command is desired, as is the ability to load files with names 
+greater than 8 characters.
+
+Additionally, Frank Bogardus' machine language implementation for the Model I
+included the ability to "save" programs to the Model I by printing them.  This
+functionaly is not implemented here.
+
+---------
+ LICENSE
+---------
+    See LICENSE.TXT for details about the license for this software.
+
+    DLOAD Server - A UNIX host server for DLOAD on the Tandy Color Computer 1 & 2
+    Copyright (C) 2020 Christopher Hyzer
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
