@@ -81,7 +81,7 @@ DLOAD"-DIR"
 Only -DIR, for getting a directory listing, is supported at this time.
 
 The included TEST file contains a short BASIC program in ASCII format that should
-work serve as a good test for the DLOAD server's functionality.  You can also use
+serve as a good test for the DLOAD server's functionality.  You can also use
 the -DIR command-mode option to test if you don't have any files to use.
 
 ****************************************************************************
