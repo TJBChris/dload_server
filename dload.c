@@ -492,7 +492,7 @@ char name[];
 	return 0;
 }
 
-/* Sends a file with the name specified; CoCo filenames are 8.3 only. */
+/* Sends a file with the name specified; CoCo filenames are 8 characters only. */
 sendFile(name, p)
 char name[];
 int p;
