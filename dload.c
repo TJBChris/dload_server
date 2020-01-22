@@ -5,7 +5,8 @@
 /* exit() is in stdlib.h for Linux, but inherent in XENIX 
  * Also, errno was necessary for Linux only.  */
 
-#ifdef __linux__
+#ifdef __STDC__
+#include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <termios.h>
@@ -46,10 +47,6 @@
  *
  */
 
-#ifdef __linux__
-int main(int argc, char *argv[]);
-#endif
-
 /* XENIX's C Compiler does not like the const keyword */
 /* Misc. Constants */
 char VERSION[9] = "01.00.00";
@@ -78,9 +75,29 @@ struct block {
 
 };
 
+#ifdef __STDC__
+int main(int argc, char *argv[]);
+void sendError(int s);
+int openSerial(char p[]);
+void readSerialByte (int sp, unsigned char *b, int wait);
+void writeSerialByte (int pt, unsigned char ch);
+void closeSerial(int s);
+int sendBlock (int prt, struct block *bl);
+int handshake(int spt, char name[]);
+void sendFile(char name[], int p);
+int blockAck(int p);
+void initBlock(struct block *b);
+int updateBlock(struct block *b, char c);
+void padBlock(struct block *b);
+void updateChecksum (struct block *b, char c);
+void makePrg(char filename[]);
+void header(FILE *f);
+void footer(FILE *f);
+#endif
+
 /* MS XENIX C compiler does not use separate function prototypes. 
    Note older declaration of function parameters below */
-#ifdef __linux__
+#ifdef __STDC__
 int main(int argc, char *argv[])
 #else
 main(argc, argv)
@@ -180,8 +197,12 @@ char *argv[];
 
 /* TODO - Send an error - this function is currently a stub and likely
  * won't work as-is. */
+#ifdef __STDC__
+void sendError(int s)
+#else
 sendError(s)
 int s;
+#endif
 {
 	int i;
 
@@ -194,10 +215,14 @@ int s;
 
 /* Open the serial port - returns a pointer to the port */
 /* Abort execution on failure. */
+#ifdef __STDC__
+int openSerial(char p[])
+#else
 openSerial(p)
 char p[];
+#endif
 {
-#ifndef __linux__
+#ifndef __STDC__
 	struct sgttyb tparam;
 #else
 	struct termios tty;
@@ -207,7 +232,7 @@ char p[];
 
 	/* Open the port (for R/W, must use XENIX system call to open file rather
  	than fopen */
-#ifndef __linux__
+#ifndef __STDC__
 	fd = open(p, O_RDWR | O_NDELAY);
 #else
 	fd = open (p, O_RDWR | O_NOCTTY | O_SYNC);
@@ -222,7 +247,7 @@ char p[];
 	/* Configure the serial port (done differently for XENIX vs Linux */
 	printf("Configuring serial port.\n");
 
-#ifdef __linux__
+#ifdef __STDC__
 /* This code borrowed from https://stackoverflow.com/questions/6947413/how-to-open-read-and-write-from-serial-port-in-c */
 	if (tcgetattr (fd, &tty) != 0)
         {
@@ -272,15 +297,19 @@ char p[];
 
 /* Read byte from Serial port - if wait=1, blocks until a byte is available. */
 /* If wait=0, does not wait for a byte. Execution will abort if read fails. */
+#ifdef __STDC__
+void readSerialByte (int sp, unsigned char *b, int wait)
+#else
 readSerialByte (sp,b,wait) 
 int sp;
 unsigned char *b;
 int wait;
+#endif
 {
 	int a = 0;
 
 /* Linux returns -1 on non-blocking serial I/O, XENIX returns 0. */
-#ifdef __linux__
+#ifdef __STDC__
 	if (wait == 1) {
 		/* Read a byte. On some platforms, no bytes available returns -1 with EAGAIN (11) */
 		while (a == 0 || ((a == -1) && (errno == 11))) {
@@ -318,9 +347,13 @@ int wait;
 
 /* Write a byte to the Serial Port - errors will be displayed via this function */
 /* Execution will abort if write fails. */
+#ifdef __STDC__
+void writeSerialByte (int pt, unsigned char ch)
+#else
 writeSerialByte (pt, ch)
 int pt;
 unsigned char ch;
+#endif
 {
 	int a;
 
@@ -336,8 +369,12 @@ unsigned char ch;
 }
 
 /* Close the serial port. */
+#ifdef __STDC__
+void closeSerial(int s)
+#else
 closeSerial(s) 
 int s;
+#endif
 {
 
 	close(s);	
@@ -345,9 +382,13 @@ int s;
 }
 
 /* Send the block to the serial port. */
+#ifdef __STDC__
+int sendBlock (int prt, struct block *bl)
+#else
 sendBlock (prt, bl) 
 int prt;
 struct block *bl;
+#endif
 {
 
 	char c;
@@ -379,9 +420,13 @@ struct block *bl;
 /* Handshake function - when the program gets 0x8A, this function */
 /* will be called to init the handshake.  Returns the following: */
 /* 0 = BASIC program, 1 = SERVER_COMMAND mode, 255 = error */
+#ifdef __STDC__
+int handshake(int spt, char name[])
+#else
 handshake(spt, name) 
 int spt;
 char name[];
+#endif
 {
 
 	FILE *f;
@@ -493,9 +538,13 @@ char name[];
 }
 
 /* Sends a file with the name specified; CoCo filenames are 8 characters only. */
+#ifdef __STDC__
+void sendFile(char name[], int p)
+#else
 sendFile(name, p)
 char name[];
 int p;
+#endif
 {
 	/* F 3 of the protocol will be managed by the sending function, not by */
 	/* the handshake */
@@ -611,8 +660,12 @@ int p;
 /* Block acknowledgement routine */
 /* TODO - Add a timeout in case the CoCo unexpectedly 
    terminates the connection (as happens with a ?DS ERROR) */
+#ifdef __STDC__
+int blockAck(int p)
+#else
 blockAck(p)
 int p;
+#endif
 {
 	unsigned char c;
 	int i;
@@ -652,8 +705,12 @@ int p;
 }
 
 /* Initialize a block */
+#ifdef __STDC__
+void initBlock(struct block *b)
+#else
 initBlock(b) 
 struct block *b;
+#endif
 {
 	int i;
 	b->max_size = 128;
@@ -668,9 +725,13 @@ struct block *b;
 
 /* Update a given block with the char c provided. */
 /* returns 0 on sucess, 1 on failure. */
+#ifdef __STDC__
+int updateBlock(struct block *b, char c)
+#else
 updateBlock(b, c)
 struct block *b;
 char c;
+#endif
 {
 
 	if (b->index > b->max_size) {
@@ -687,8 +748,12 @@ char c;
 }
 
 /* Pad the remainder of the block with spaces */
+#ifdef __STDC__
+void padBlock(struct block *b)
+#else
 padBlock(b)
 struct block *b;
+#endif
 {
 
 	int i;
@@ -704,9 +769,13 @@ struct block *b;
 }
 
 /* Update the checksum of the block given the current byte. */
+#ifdef __STDC__
+void updateChecksum (struct block *b, char c)
+#else
 updateChecksum (b, c)
 struct block *b;
 char c;
+#endif
 {
 
 	b->checksum = (unsigned int)c^b->checksum;
@@ -714,8 +783,12 @@ char c;
 }
 
 /* Based on the command, build a BASIC program to send back to client. */
+#ifdef __STDC__
+void makePrg (char filename[])
+#else
 makePrg(filename)
 char filename[];
+#endif
 {
 	FILE *fp, *popen();
 	FILE *rs, *fopen();
@@ -731,7 +804,11 @@ char filename[];
 
 	if (rs == NULL) {
 		printf("Failed to open dload.tmp for writing.\n");
+#ifdef __STDC__
+/* TODO - Determine why this is here */
+#else
 		strcpy(filename,NULL);
+#endif
 		return;
 	}
 	header(rs);
@@ -792,8 +869,12 @@ char filename[];
 }
 
 /* Write the BASIC program header */
+#ifdef __STDC__
+void header(FILE *f)
+#else
 header(f)
 FILE *f; 
+#endif
 {
 
 	char line10[41];
@@ -808,8 +889,12 @@ FILE *f;
 }
 
 /* Write the BASIC program footer */
+#ifdef __STDC__
+void footer(FILE *f)
+#else
 footer(f)
 FILE *f;
+#endif
 {
 	char line1000[10];
 	strcpy(line1000,"1000 END\n");
