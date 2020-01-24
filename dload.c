@@ -49,7 +49,7 @@
 
 /* XENIX's C Compiler does not like the const keyword */
 /* Misc. Constants */
-char VERSION[9] = "01.00.00";
+char VERSION[9] = "01.01.00";
 
 /* Protocol constants */
 unsigned char ERROR = 0xBC;
@@ -57,20 +57,25 @@ unsigned char PAD_BYTE = 0x20;
 unsigned char HS = 0x8A;
 unsigned char HS_OK = 0x97;
 unsigned char NAME_OK = 0xC8;
-unsigned char F_1_OK = 0x01;
-unsigned char F_1_NE_ERROR = 0xFF;
+unsigned char NAK = 0xDE;
+int BLOCK_SIZE = 128;
+
+/* Redefinitions of F1 and F2 */
+unsigned char F_1_BAS = 0x00;
+unsigned char F_1_ML = 0x02;
+unsigned char F_2_BIN = 0x00;
+unsigned char F_2_ASC = 0xFF;
 unsigned char F_2_OK = 0x01;
-unsigned char F_2_FM_ERROR = 0x00;
+unsigned char F_1_NE_ERROR = 0xFF;
 unsigned char F_3_LAST = 0x00; /* sent after last block. */
-unsigned char F_3_BASIC_PRG = 0x80; /* set for each BASIC block sent. */
 unsigned char F_3_DS_ERROR = 0xFF;
 
 /* Define the structure of a block */
 struct block {
 
-        unsigned int checksum;
+        unsigned char checksum;
         int index;
-        char data[129]; /*FLAG_3 is part of data block + 128-bytes for payload */
+        unsigned char data[129]; /*FLAG_3 is part of data block + 128-bytes for payload */
         int max_size;
 
 };
@@ -84,15 +89,16 @@ void writeSerialByte (int pt, unsigned char ch);
 void closeSerial(int s);
 int sendBlock (int prt, struct block *bl);
 int handshake(int spt, char name[]);
-void sendFile(char name[], int p);
+void sendFile(char name[], int p, int type);
 int blockAck(int p);
 void initBlock(struct block *b);
-int updateBlock(struct block *b, char c);
+int updateBlock(struct block *b, unsigned char c);
 void padBlock(struct block *b);
-void updateChecksum (struct block *b, char c);
+void updateChecksum (struct block *b, unsigned char c);
 void makePrg(char filename[]);
 void header(FILE *f);
 void footer(FILE *f);
+int fileType(char filename[]);
 #endif
 
 /* MS XENIX C compiler does not use separate function prototypes. 
@@ -112,6 +118,9 @@ char *argv[];
         char filename[13];
         char portname[127];
 	int serial;
+
+	/* Disable the stdout buffer */
+	setbuf(stdout, NULL);
 
 	/* Print some GNU GPLv3-style intro text. */
 	printf("\ndload_server Version: %s \nA DLOAD server for the TRS-80 Color Computer 1 and 2.  ", VERSION);
@@ -156,25 +165,26 @@ char *argv[];
 
 			switch (result) {
 
-				/* BASIC File XFer */
+				/* File XFer */
 				case 0:
-					printf("Sending file: %s\n", filename);
-					sendFile(filename, serial);
+				case 2:
+				case 3:
+					printf("Sending file (type=%d): %s\n", result, filename);
+					sendFile(filename, serial, result);
 					break;
-				/* Command mode (future) */
+				/* Command mode */
 				case 1:
 					printf("Command mode: Building BASIC program.\n");
 					makePrg(filename);
 
 					if (filename == NULL) {
 						printf("Returning error to client.\n");
-						writeSerialByte(serial, ERROR);
+						sendError(serial);
 					} else {
-						sendFile(filename, serial);
+						sendFile(filename, serial, result);
 					}
 
 					break;
-
 				case 255:
 					printf("Failure during handshake.  Operation aborted.\n");
 					break;
@@ -366,6 +376,9 @@ unsigned char ch;
 		exit(1);
 	}
 
+	/* Sleep for a bit - test code - seems to help DLOADM*/
+	usleep(25000); /* 0.1 seconds */
+
 }
 
 /* Close the serial port. */
@@ -391,19 +404,21 @@ struct block *bl;
 #endif
 {
 
-	char c;
+	unsigned char c;
 	int i;
 	for (i=0; i < bl->index; i++) {
-		/* printf("%c",bl->data[i]); */
-		writeSerialByte(prt,bl->data[i]);
 
-		/* Do a non-blocking read to see if the CoCo threw an error  */
-		/* This must happen before the checksum goes out to avoid interfering with the
+		writeSerialByte(prt,bl->data[i]);
+		/* printf("%x ",bl->data[i]); */
+
+		/* Do a blocking read to see if the CoCo threw an error  
+ 		 * The CoCo sends a space (0x20) for each byte received.
+		 * This must happen before the checksum goes out to avoid interfering with the
  		acknowledgement routine. */
 		readSerialByte(prt, &c, 0);
 		/* printf("%x ", c); */
 
-		if (c == ERROR) {
+		if (c == ERROR || c == NAK) {
 			printf("Client returned error during block transission.\n");
 			return 1;
 		}
@@ -434,6 +449,7 @@ char name[];
 	unsigned char c;
 	unsigned char remoteChecksum;
 	int i;
+	int fType = 0;
 
 	struct block fn;
 	struct block *filename = &fn;
@@ -479,7 +495,7 @@ char name[];
 	readSerialByte(spt, &remoteChecksum, 1);
 	if (remoteChecksum != filename -> checksum){
 		printf("Got filename: %s: Client sent checksum %i, but the computed checksum is %i.  Aborting.\n", filename -> data, remoteChecksum, filename->checksum);
-		writeSerialByte(spt, ERROR);
+		sendError(spt);
 		return 255;
 	}
 
@@ -496,8 +512,10 @@ char name[];
 	if (name[0] == '-') {
 		printf("Command mode request.  Skipping file check.\n");
 	} else {
-		f = fopen(name, "r");
-		if (f == NULL) {
+
+		/* Get the incoming file type (or bail if we can't open it to figure it out */
+		fType = fileType(name);
+		if (fType == 255) {
 			printf("Failed to open file.  Sending ?NE ERROR to client and aborting.\n");
 			i = updateBlock(flags12, F_1_NE_ERROR);
 			i = updateBlock(flags12, F_2_OK);
@@ -505,18 +523,37 @@ char name[];
 			return 255;
 		}
 
-		/* Close it, we'll open it for real in sendFile */
-		fclose (f);
 	}
 
-	/* The name checks out and the file is open - let the client know we're going to proceed. */
+	/* The name checks out - let the client know we're going to proceed and the file type. */
+	switch (fType) {
+		/* ASCII */
+		case 0:
+			i = updateBlock(flags12, F_1_BAS);
+			i = updateBlock(flags12, F_2_ASC);
+			break;
 
-	if (updateBlock(flags12, F_1_OK) != 0) {
-		return 255;
-	}
+		/* ML */
+		case 2:
+			i = updateBlock(flags12, F_1_ML);
+			i = updateBlock(flags12, F_2_BIN);
+			break;
+		
+		/* Tokenized BASIC */
+		case 3:
+			i = updateBlock(flags12, F_1_NE_ERROR);
+			i = updateBlock(flags12, F_2_OK);
+			sendBlock(spt, flags12);
+			printf("Tokenized BASIC programs are not supported.  Aborting.\n");
+			return 255;
+			break;
 
-	if (updateBlock(flags12, F_2_OK) != 0) {
-		return 255;
+		/* Unknown - send invalid combo to induce client error */
+		default:
+			i = updateBlock(flags12, F_1_ML);
+			i = updateBlock(flags12, F_2_ASC);
+			break;
+
 	}
 
 	if (sendBlock(spt, flags12) != 0) {
@@ -530,20 +567,22 @@ char name[];
 	} 
 
 	/* F_3 picks up from here, and is sent in the downstream routines (either file more or command mode functions. */
+	/* Command mode = 1 */
 	if (name[0] == '-') {
 		return 1;
 	}
 
-	return 0;
+	return fType;
 }
 
 /* Sends a file with the name specified; CoCo filenames are 8 characters only. */
 #ifdef __STDC__
-void sendFile(char name[], int p)
+void sendFile(char name[], int p, int type)
 #else
-sendFile(name, p)
+sendFile(name, p, type)
 char name[];
 int p;
+int type;
 #endif
 {
 	/* F 3 of the protocol will be managed by the sending function, not by */
@@ -569,7 +608,7 @@ int p;
 	filesize = ftell(hf);
 	rewind(hf);
 
-	fileblocks = filesize/128;
+	fileblocks = filesize/BLOCK_SIZE;
 	printf("File size: %d bytes, split into %d blocks.\n", filesize, fileblocks + 1);
 	
 	/* Ensure file is open... */
@@ -581,18 +620,24 @@ int p;
 		initBlock(thisBlock);
 
 		/* FLAG_3 is included in checksum, so it's part of block payload */
-		result = updateBlock(thisBlock, F_3_BASIC_PRG);
+		if (filesize > BLOCK_SIZE ) {
+			result = updateBlock(thisBlock, BLOCK_SIZE);
+		} else {
+			result = updateBlock(thisBlock, filesize);
+		}
 
-		printf("Sending payload:.");
-		while (fread(&h,1,1,hf) == 1) {
+		printf("Sending payload:[1] ");
+		while (fread(&h,sizeof(unsigned char),1,hf) == 1) {
 
-			/* If we get a UNIX newline, change it to \r */
-			if (h == '\n') {
+
+			/* If we get a UNIX newline in ASCII mode, change it to \r */
+			if (h == '\n' && (type != 2 || type != 3)) {
 				h = '\r';
 			}
 
 			/* printf("%x ",h); */
-			printf(".");
+			/* printf("."); */
+
 			/* Update the block. */
 			result = updateBlock(thisBlock, h);
 			if (result != 0) {
@@ -604,8 +649,10 @@ int p;
 			/* Increment the byte count, and create a new block if we have hit the max size. */
 			bytecount++;
 			if (bytecount == thisBlock -> max_size) {
-
+				filesize -= BLOCK_SIZE;
 				blockcount++;
+				
+				printf("[%d] ", blockcount+1);
 				if (sendBlock(p, thisBlock) != 0) {
 					result = 1;
 					break;
@@ -616,8 +663,12 @@ int p;
 				}
 				initBlock(thisBlock);
 
-				/* Add the FLAG_3 value indicating a continuing BASIC program. */
-				result = updateBlock(thisBlock, F_3_BASIC_PRG);
+				/* Add the FLAG_3 value indicating more bytes. */
+				if (filesize > BLOCK_SIZE) {
+					result = updateBlock(thisBlock, BLOCK_SIZE);
+				} else {
+					result = updateBlock(thisBlock, filesize);
+				}
 				bytecount = 0;
 			}	
 
@@ -636,9 +687,11 @@ int p;
 			}
 
 			/* Block Acknowledgement Routine */
-			if (blockAck(p) == 0) {
-
-				/* Send the Closing Block */
+			if (blockAck(p) != 0) {
+				printf("Host block acknowledgement failed during file transmission.\n");
+			} else {
+				/* Send the Closing Block - this seems to be required despite using
+				 * correct block size values during file xfer. */
 				initBlock(thisBlock);
 				if (updateBlock(thisBlock, F_3_LAST) != 0) {
 					return;
@@ -678,7 +731,7 @@ int p;
 	readSerialByte(p, &c, 1);
 	if (c != HS_OK) {
 		printf("Host did not acknowledge block.  Got %x.\n", c);
-		writeSerialByte(p, ERROR);
+		sendError(p);
 		return 1;
 	} else {
 		writeSerialByte(p, HS_OK);
@@ -691,7 +744,7 @@ int p;
 
 		readSerialByte(p, &c, 1);
 		if (c != st -> checksum) {
-			writeSerialByte(p, ERROR);
+			sendError(p);
 			printf("Checksum failed during block acknowledgement.\n");
 			return 1;
 		} else {
@@ -726,11 +779,11 @@ struct block *b;
 /* Update a given block with the char c provided. */
 /* returns 0 on sucess, 1 on failure. */
 #ifdef __STDC__
-int updateBlock(struct block *b, char c)
+int updateBlock(struct block *b, unsigned char c)
 #else
 updateBlock(b, c)
 struct block *b;
-char c;
+unsigned char c;
 #endif
 {
 
@@ -770,15 +823,15 @@ struct block *b;
 
 /* Update the checksum of the block given the current byte. */
 #ifdef __STDC__
-void updateChecksum (struct block *b, char c)
+void updateChecksum (struct block *b, unsigned char c)
 #else
 updateChecksum (b, c)
 struct block *b;
-char c;
+unsigned char c;
 #endif
 {
 
-	b->checksum = (unsigned int)c^b->checksum;
+	b->checksum = (unsigned char)c^b->checksum;
 
 }
 
@@ -900,4 +953,48 @@ FILE *f;
 	strcpy(line1000,"1000 END\n");
 
 	fwrite(line1000,1,sizeof(line1000),f);
+}
+
+/* Get the type of file (0 = ASCII, 2 = Binary/ML, or 255 = doesn't exist */
+/* According to Extended BASIC Unravelled II, Page B16, DLOAD'd BASIC files must be ASCII (line 1517) */ 
+#ifdef __STDC__
+int fileType(char filename[])
+#else
+fileType(filename)
+char filename[];
+#endif
+{
+	FILE *f;
+	unsigned char c;
+	int type;
+
+	/* Attempt to open the file, return 255 if NE so the handshake can abort */
+	f = fopen(filename, "r");
+	if (f == NULL){
+		/* calling routine has error message. */
+		return 255;
+	}
+
+	/* From Page 17 of Disk BASIC Unravelled II, BIN files have 0x00 as first byte to indicate
+ 	 * five-byte preamble - Pages B16 and B17 of Extended BASIC Unravelled II seem to indicate
+ 	 * DLOAD expects same forat; 5-byte preamble, 5-byte postamble, which should all be in the
+ 	 * file being read. */
+
+	/* Read first byte and see if it's 0x00 */
+	if (fread(&c,1,1,f) == 1) {
+
+		/* printf("First byte: %x\n", c); */
+		/* Right now we have ASCII or BINARY */
+		if (c == 0x00) {
+			type = 2; /* ML BINARY */
+		} else if (c == 0xFF) {
+			type = 3; /* BASI CBINARY */
+		} else {
+			type = 0; /* ASCII */
+		} 
+	}
+	
+	fclose(f);
+	return type;
+
 }

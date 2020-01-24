@@ -82,8 +82,8 @@ For example: ./dload /dev/tty02 (for serial channel B on a Model 16/16B/Tandy 60
 
 At the moment, the server serves only DLOAD command requests to retrieve 
 BASIC programs stored in ASCII format on the host.  DLOADM and machine language 
-is not currently supported.  You can issue commands to the server and have
-the result sent back to the client as a BASIC program.  To do this,
+are supported, but are unreliable.  See LIMITATIONS.  You can issue commands to 
+the server and have the result sent back to the client as a BASIC program.  To do this,
 issue the command to DLOAD as a filename, with a hyphen as the prefix:
 
 DLOAD"-DIR"
@@ -103,13 +103,28 @@ the -DIR command-mode option to test if you don't have any files to use.
  LIMITATIONS
 -------------
 
+BLOCK LIMIT: In my initial testing, the Color Computer aborts the transfer
+(returns 0xBC) after 140 blocks.  That means at maximum, I can send 139 data
+blocks plus the empty EOF block without error.  Adding a 140th data block
+causes the transfer to abort when the EOF block is sent.  Larger files send
+the first 141 blocks and abruptly end.  The CoCo indicates IO ERROR in this 
+case.
+
 This code will hang in situations where the CoCo terminates abruptly without 
 sending an error.  This occurs when a ?DS ERROR is encountered (caused
 by send a program with lines that do not start with a line number).  If this
 happens, quit the server and restart it.  
 
-DLOADM is not supported. (It's untested, I don't expect it to work.)
-Sending tokenized BASIC programs has not been tested.
+DLOADM is is unreliable.  It seems to work intermittently.  The server has
+a delay built in mitigate this some; the issues seem to revolve around 
+variability in the bit banger serial port's timing; higher delays between
+bytes increases reliability while sacrificing transfer speed.  
+
+Tokenized BASIC programs are not supported.  If detected, the server will
+cause an NE ERROR on the client, while indicating the detection of a 
+tokenized program on the server side.  According to Extended BASIC Unravelled
+II, DLOAD does not support tokenized BAS files.  I have tested this as well,
+and every attempt to send one results in a ?FM ERROR during the transfer.
 
 --------
  FUTURE

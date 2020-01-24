@@ -1,0 +1,18 @@
+DLOAD SERVER REVISIONS
+======================
+
+01.00.00
+ * Initial version
+ * Supports ASCII BASIC file transfer via DLOAD command.
+ * Runs at 1200 BAUD, basic LINUX and TRS-XENIX support.
+
+01.10.00
+ * Updated block display to show block number instead of 1 dot per byte.
+ * Cleaned up varying types (char, unsigned char, int), changing all to unsigned char
+ * Added detection of binary ML files and tokenized BASIC files.
+ * Tokenized BASIC files throw an NE ERROR (Extended BASIC Unravelled II indicates these are not supported by DLOAD).
+ * Added experimental DLOADM support.  This should be considered non-functional at this point.
+ * Changed data block control byte to the actual number of bytes in the block vs. always sending 0x80, as the CC DLOAD program did in 80 Micro.  The CoCo still seems to expect a block with a control byte of 0x00 followed by 128 bytes of garbage; this is being investigated.
+
+ * Cleaned up error routines so errors on the server side (before the client dies) should precipiate an IO ERROR on client.
+ * Noted 140 block apparent limitation on the CoCo side - my Tandy-branded 26-3127B reliably throws IO ERRORS after 141 blocks, indicating a failed transfer to the client.  Happens with BASIC and ML programs via DLOAD and DLOADM.
