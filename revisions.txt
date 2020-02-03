@@ -16,3 +16,8 @@ DLOAD SERVER REVISIONS
 
  * Cleaned up error routines so errors on the server side (before the client dies) should precipiate an IO ERROR on client.
  * Noted 140 block apparent limitation on the CoCo side - my Tandy-branded 26-3127B reliably throws IO ERRORS after 141 blocks, indicating a failed transfer to the client.  Happens with BASIC and ML programs via DLOAD and DLOADM.
+
+01.01.02
+Removed confirmation byte read for each byte sent in sendBlock (commented out, at least for now).  This caused issues where handshake would stall when running on Cygwin / Windows Subsystem for Linux (WSL).
+
+Reduced sleep time to .175 ms for DLOADM.  So far that's been fairly reliable

@@ -49,7 +49,7 @@
 
 /* XENIX's C Compiler does not like the const keyword */
 /* Misc. Constants */
-char VERSION[9] = "01.01.00";
+char VERSION[9] = "01.01.02";
 
 /* Protocol constants */
 unsigned char ERROR = 0xBC;
@@ -375,10 +375,10 @@ unsigned char ch;
 		printf("Failed to write to the serial port.  Exiting.\n");
 		exit(1);
 	}
-
+#ifdef __STDC__
 	/* Sleep for a bit - test code - seems to help DLOADM*/
-	usleep(25000); /* 0.1 seconds */
-
+	usleep(17500); /* 0.175 seconds */
+#endif
 }
 
 /* Close the serial port. */
@@ -411,17 +411,18 @@ struct block *bl;
 		writeSerialByte(prt,bl->data[i]);
 		/* printf("%x ",bl->data[i]); */
 
-		/* Do a blocking read to see if the CoCo threw an error  
+		/* Do a non-blocking read to see if the CoCo threw an error  
  		 * The CoCo sends a space (0x20) for each byte received.
 		 * This must happen before the checksum goes out to avoid interfering with the
  		acknowledgement routine. */
-		readSerialByte(prt, &c, 0);
-		/* printf("%x ", c); */
 
+		/* Commenting this out for now; on Windows (Cygwin or WSL, this read
+		causes issues */	
+		/*readSerialByte(prt, &c, 0); 
 		if (c == ERROR || c == NAK) {
 			printf("Client returned error during block transission.\n");
 			return 1;
-		}
+		}*/
 
 	}
 

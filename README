@@ -1,4 +1,4 @@
-DLOAD Server 01.00.00
+DLOAD Server 01.01.02
 By: Christopher Hyzer - 12/2019
 
 -------------
@@ -125,6 +125,10 @@ cause an NE ERROR on the client, while indicating the detection of a
 tokenized program on the server side.  According to Extended BASIC Unravelled
 II, DLOAD does not support tokenized BAS files.  I have tested this as well,
 and every attempt to send one results in a ?FM ERROR during the transfer.
+
+With Version 01.01.02, this version fixes a stall during handshake while using the Windows Subsystem for Linux as well as Cygwin.  The issue appears to be a result of the byte check I was doing in sendBlock().  Commenting out the byte read after sending the most recent byte in the block allows the program to succeed.  This means the program may hang if the CoCo throws an error while a block is still mid-transfer.
+
+Testing on Windows (Cygwin/WSL) was minimal.  This program will not compile in any native Windows tools that I know of.
 
 --------
  FUTURE
