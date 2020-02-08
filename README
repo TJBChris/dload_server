@@ -1,5 +1,8 @@
-DLOAD Server 01.01.02
-By: Christopher Hyzer - 12/2019
+DLOAD Server 01.01.03
+By: Christopher Hyzer
+
+Originally written: 12/2019
+File updated: 2/8/2020
 
 -------------
  DESCRIPTION
@@ -49,7 +52,7 @@ listing in assembly language for that system, as well as his knowledge of the
 DLOAD protocol.  Without that information, this program would not have been
 possible.  This program does not use any code from the "80 Micro" article.
 
-Additional information can be found here: 
+Additional information about the DLOAD protocol can be found here: 
 
 https://pairlist5.pair.net/pipermail/coco/2020-January/173451.html
 
@@ -69,7 +72,7 @@ To compile on TRS-XENIX, use:
 cc -o dload dload.c
 
 To compile on Linux, use:
-gcc -o dload -w dload.c
+gcc -o dload dload.c
 
 ---------------
  FUNCTIONALITY
@@ -92,7 +95,9 @@ Only -DIR, for getting a directory listing, is supported at this time.
 
 The included TEST file contains a short BASIC program in ASCII format that should
 serve as a good test for the DLOAD server's functionality.  You can also use
-the -DIR command-mode option to test if you don't have any files to use.
+the -DIR command-mode option to test if you don't have any files to use.  The 
+BIGTEST file is the maximum size I can get DLOAD to transfer (139 data blocks plus
+the close block).
 
 ****************************************************************************
 ** The CoCo expects line feeds as \r.  This program will convert \n to \r **
@@ -115,9 +120,9 @@ sending an error.  This occurs when a ?DS ERROR is encountered (caused
 by send a program with lines that do not start with a line number).  If this
 happens, quit the server and restart it.  
 
-DLOADM is is unreliable.  It seems to work intermittently.  The server has
-a delay built in mitigate this some; the issues seem to revolve around 
-variability in the bit banger serial port's timing; higher delays between
+DLOADM is is unreliable without inserting a delay between bytes sent on faster
+platforms (basically anything not a TRS-80 Model 16).  The server has
+a delay built in mitigate this some; higher delays between
 bytes increases reliability while sacrificing transfer speed.  
 
 Tokenized BASIC programs are not supported.  If detected, the server will

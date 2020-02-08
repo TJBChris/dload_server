@@ -21,3 +21,12 @@ DLOAD SERVER REVISIONS
 Removed confirmation byte read for each byte sent in sendBlock (commented out, at least for now).  This caused issues where handshake would stall when running on Cygwin / Windows Subsystem for Linux (WSL).
 
 Reduced sleep time to .175 ms for DLOADM.  So far that's been fairly reliable
+
+01.01.03
+Changed all serial port reads to be blocking.
+
+Removed unnecessary readSerialByte from the block send routine.
+
+Remove wait/no-wait behavior from readSerialByte.
+
+Added BIGTEST, which is a 139-block file to test longer transfers to the CoCo.

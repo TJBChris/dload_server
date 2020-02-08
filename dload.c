@@ -49,7 +49,7 @@
 
 /* XENIX's C Compiler does not like the const keyword */
 /* Misc. Constants */
-char VERSION[9] = "01.01.02";
+char VERSION[9] = "01.01.03";
 
 /* Protocol constants */
 unsigned char ERROR = 0xBC;
@@ -84,7 +84,7 @@ struct block {
 int main(int argc, char *argv[]);
 void sendError(int s);
 int openSerial(char p[]);
-void readSerialByte (int sp, unsigned char *b, int wait);
+void readSerialByte (int sp, unsigned char *b);
 void writeSerialByte (int pt, unsigned char ch);
 void closeSerial(int s);
 int sendBlock (int prt, struct block *bl);
@@ -150,7 +150,7 @@ char *argv[];
 		b = 0x00;
 		result = 255;
 		/* Read a byte. */
-		readSerialByte(serial, &b, 1);
+		readSerialByte(serial, &b);
 
 		/* printf("%c",b); */
 
@@ -243,10 +243,11 @@ char p[];
 	/* Open the port (for R/W, must use XENIX system call to open file rather
  	than fopen */
 #ifndef __STDC__
-	fd = open(p, O_RDWR | O_NDELAY);
+	fd = open(p, O_RDWR);
 #else
 	fd = open (p, O_RDWR | O_NOCTTY | O_SYNC);
 #endif
+	/*fcntl(fd, F_SETFL, 0) */
 
 	/* Abort if we don't have a file handle. */
 	if (fd == -1) {
@@ -273,7 +274,7 @@ char p[];
 	tty.c_lflag = 0;                /* no signaling chars, no echo */
                                        	/* no canonical processing */
         tty.c_oflag = 0;                /* no remapping, no delays */
-	tty.c_cc[VMIN]  = 0;            
+	tty.c_cc[VMIN]  = 1;            
         tty.c_cc[VTIME] = 0;            
 
 	tty.c_iflag &= ~(IXON | IXOFF | IXANY); /* shut off xon/xoff ctrl */
@@ -308,50 +309,23 @@ char p[];
 /* Read byte from Serial port - if wait=1, blocks until a byte is available. */
 /* If wait=0, does not wait for a byte. Execution will abort if read fails. */
 #ifdef __STDC__
-void readSerialByte (int sp, unsigned char *b, int wait)
+void readSerialByte (int sp, unsigned char *b)
 #else
-readSerialByte (sp,b,wait) 
+readSerialByte (sp,b) 
 int sp;
 unsigned char *b;
-int wait;
 #endif
 {
 	int a = 0;
 
-/* Linux returns -1 on non-blocking serial I/O, XENIX returns 0. */
-#ifdef __STDC__
-	if (wait == 1) {
-		/* Read a byte. On some platforms, no bytes available returns -1 with EAGAIN (11) */
-		while (a == 0 || ((a == -1) && (errno == 11))) {
-			a = read(sp, b, 1);
-			/* printf("%d ", a); */
-		}
-	} else {
-		a = read(sp, b, 1);
-	}
-
-	/* Error check (if we get EAGAIN as errno, this is not a problem, just no bytes available). */
-	if (a == -1 && errno != 11) {
-		printf("Failed to read from serial port.  Error code %d.  Exiting.\n", errno);	
-		exit(1);
-	}
-#else
-        if (wait == 1) {
-                /* Read a byte.  */
-                while (a == 0) {
-                        a = read(sp, b, 1);
-                        /* printf("%d ", a); */
-                }
-        } else {
-                a = read(sp, b, 1);
-        }
+	/* Linux returns -1 on non-blocking serial I/O, XENIX returns 0. */
+	a = read(sp, b, 1);
 
         /* Error check */
         if (a == -1) {
                 printf("Failed to read from serial port.  Exiting.\n");
                 exit(1);
         }	
-#endif
 
 }
 
@@ -370,15 +344,15 @@ unsigned char ch;
 	/* Send the byte */
 	a = write(pt, &ch, 1);
 
+#ifdef __STDC__
+	usleep(17500);
+#endif
+
 	/* Error check */
 	if (a == -1) {
 		printf("Failed to write to the serial port.  Exiting.\n");
 		exit(1);
 	}
-#ifdef __STDC__
-	/* Sleep for a bit - test code - seems to help DLOADM*/
-	usleep(17500); /* 0.175 seconds */
-#endif
 }
 
 /* Close the serial port. */
@@ -394,7 +368,7 @@ int s;
 
 }
 
-/* Send the block to the serial port. */
+/* Send the block to the serial port.  */
 #ifdef __STDC__
 int sendBlock (int prt, struct block *bl)
 #else
@@ -409,20 +383,7 @@ struct block *bl;
 	for (i=0; i < bl->index; i++) {
 
 		writeSerialByte(prt,bl->data[i]);
-		/* printf("%x ",bl->data[i]); */
-
-		/* Do a non-blocking read to see if the CoCo threw an error  
- 		 * The CoCo sends a space (0x20) for each byte received.
-		 * This must happen before the checksum goes out to avoid interfering with the
- 		acknowledgement routine. */
-
-		/* Commenting this out for now; on Windows (Cygwin or WSL, this read
-		causes issues */	
-		/*readSerialByte(prt, &c, 0); 
-		if (c == ERROR || c == NAK) {
-			printf("Client returned error during block transission.\n");
-			return 1;
-		}*/
+		/*printf("%x ",bl->data[i]);  */
 
 	}
 
@@ -474,7 +435,7 @@ char name[];
 
 	/* Next 8 bytes should be a filename. */
 	for (i=0; i<8; i++) {
-		readSerialByte(spt, &c, 1);
+		readSerialByte(spt, &c);
 		/* printf("%x",c); */
 		if (updateBlock(filename, c) != 0) {
 			break;
@@ -493,7 +454,7 @@ char name[];
 
 	/* Client will send checksum byte for filename. */
 	/* If it doesn't match what we have, bail. */
-	readSerialByte(spt, &remoteChecksum, 1);
+	readSerialByte(spt, &remoteChecksum);
 	if (remoteChecksum != filename -> checksum){
 		printf("Got filename: %s: Client sent checksum %i, but the computed checksum is %i.  Aborting.\n", filename -> data, remoteChecksum, filename->checksum);
 		sendError(spt);
@@ -627,7 +588,7 @@ int type;
 			result = updateBlock(thisBlock, filesize);
 		}
 
-		printf("Sending payload:[1] ");
+		printf("Sending payload: [1] ");
 		while (fread(&h,sizeof(unsigned char),1,hf) == 1) {
 
 
@@ -729,7 +690,7 @@ int p;
 	initBlock (st);
 
 	/* Get the host response and acknowledge if HS_OK */
-	readSerialByte(p, &c, 1);
+	readSerialByte(p, &c);
 	if (c != HS_OK) {
 		printf("Host did not acknowledge block.  Got %x.\n", c);
 		sendError(p);
@@ -737,13 +698,13 @@ int p;
 	} else {
 		writeSerialByte(p, HS_OK);
 		for (i=0; i<2; i++) {
-			readSerialByte(p, &c, 1);
+			readSerialByte(p, &c);
 			if (updateBlock(st, c) != 0) {
 				return 1;
 			}
 		}
 
-		readSerialByte(p, &c, 1);
+		readSerialByte(p, &c);
 		if (c != st -> checksum) {
 			sendError(p);
 			printf("Checksum failed during block acknowledgement.\n");
