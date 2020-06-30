@@ -85,7 +85,8 @@ For example: ./dload /dev/tty02 (for serial channel B on a Model 16/16B/Tandy 60
 
 At the moment, the server serves only DLOAD command requests to retrieve 
 BASIC programs stored in ASCII format on the host.  DLOADM and machine language 
-are supported, but are unreliable.  See LIMITATIONS.  You can issue commands to 
+are not supported.  The transfer may appear to succeed, but the program will
+likely not run.  See LIMITATIONS.  You can issue commands to 
 the server and have the result sent back to the client as a BASIC program.  To do this,
 issue the command to DLOAD as a filename, with a hyphen as the prefix:
 
@@ -120,10 +121,8 @@ sending an error.  This occurs when a ?DS ERROR is encountered (caused
 by send a program with lines that do not start with a line number).  If this
 happens, quit the server and restart it.  
 
-DLOADM is is unreliable without inserting a delay between bytes sent on faster
-platforms (basically anything not a TRS-80 Model 16).  The server has
-a delay built in mitigate this some; higher delays between
-bytes increases reliability while sacrificing transfer speed.  
+DLOADM is not supported.  If you DLOADM a binary file, the transfer will succeed,
+but the result may not execute.  
 
 Tokenized BASIC programs are not supported.  If detected, the server will
 cause an NE ERROR on the client, while indicating the detection of a 
@@ -145,6 +144,9 @@ contribute to this or clone it and make it better, you're welcome to do so withi
 the terms of the license.  
 
 That said:
+Fixing DLOADM support to work correctly.  Currently DLOADM will appear to load the file,
+but EXECing it will crash the machine.  I'd like to resolve this some day.
+
 Adding a read timeout for transfer operations - right now if the CoCo bails without
 sending the server notification, the server remains stuck in transfer mode.  (See
 LIMITATIONS.)
