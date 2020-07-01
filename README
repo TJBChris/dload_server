@@ -1,8 +1,8 @@
-DLOAD Server 01.01.03
+DLOAD Server 01.01.04
 By: Christopher Hyzer
 
 Originally written: 12/2019
-File updated: 2/8/2020
+File updated: 6/30/2020
 
 -------------
  DESCRIPTION
@@ -109,12 +109,17 @@ the close block).
  LIMITATIONS
 -------------
 
-BLOCK LIMIT: In my initial testing, the Color Computer aborts the transfer
-(returns 0xBC) after 140 blocks.  That means at maximum, I can send 139 data
-blocks plus the empty EOF block without error.  Adding a 140th data block
-causes the transfer to abort when the EOF block is sent.  Larger files send
-the first 141 blocks and abruptly end.  The CoCo indicates IO ERROR in this 
-case.
+BLOCK ACKNODLEDGEMENT CHECKSUM ERRORS:  After the CoCo acknowledges receipt
+of a 128-byte block, it will send two bytes indicating the block number along
+with a checksum of the previous two bytes.  At predictable points throughout
+the transfer (particularly blocks 141 and 142), the checksum that this program
+computes does not match that which the CoCo transmits.  The data block (program)
+appears unaffected.  This program will now acknowledge the checksum mismatch with 
+the block count payload, dump it to the console, and attempt to continue the transfer.  
+Previously the program would abort on checksum mismatches during block negotiation 
+following transfer of a block.
+
+** As a result of the above, files larger than 140 blocks can be transmitted **
 
 This code will hang in situations where the CoCo terminates abruptly without 
 sending an error.  This occurs when a ?DS ERROR is encountered (caused

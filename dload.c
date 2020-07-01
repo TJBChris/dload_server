@@ -49,7 +49,7 @@
 
 /* XENIX's C Compiler does not like the const keyword */
 /* Misc. Constants */
-char VERSION[9] = "01.01.03";
+char VERSION[9] = "01.01.04";
 
 /* Protocol constants */
 unsigned char ERROR = 0xBC;
@@ -91,6 +91,7 @@ int sendBlock (int prt, struct block *bl);
 int handshake(int spt, char name[]);
 void sendFile(char name[], int p, int type);
 int blockAck(int p);
+void dumpBlock(struct block *b);
 void initBlock(struct block *b);
 int updateBlock(struct block *b, unsigned char c);
 void padBlock(struct block *b);
@@ -706,9 +707,11 @@ int p;
 
 		readSerialByte(p, &c);
 		if (c != st -> checksum) {
-			sendError(p);
-			printf("Checksum failed during block acknowledgement.\n");
-			return 1;
+			/* sendError(p); */
+			printf("Checksum mismatch during block count acknowledgement: Host sent %x, computed checksum was %x\n", c, st -> checksum);
+			printf("Dumping block and attempting to continue.\n\n");
+			dumpBlock(st);
+			writeSerialByte(p, NAME_OK);
 		} else {
 			writeSerialByte(p, NAME_OK);
 		}
@@ -719,6 +722,26 @@ int p;
 
 }
 
+/* Dump a block to the console (for debugging) */
+#ifdef __STDC__
+void dumpBlock(struct block *b)
+#else
+dumpBlock(b)
+struct block *b;
+#endif
+{
+
+	int x;
+
+	printf("Block Hex Dump\n--------------\nBlock size: %i\n",b -> index);
+	
+	for (x=0; x < b->index; x++){
+		printf("%x ", b->data[x]);
+	}	
+	
+	printf("\n--------------\nDump complete.\n");
+
+}
 /* Initialize a block */
 #ifdef __STDC__
 void initBlock(struct block *b)

@@ -15,7 +15,7 @@ DLOAD SERVER REVISIONS
  * Changed data block control byte to the actual number of bytes in the block vs. always sending 0x80, as the CC DLOAD program did in 80 Micro.  The CoCo still seems to expect a block with a control byte of 0x00 followed by 128 bytes of garbage; this is being investigated.
 
  * Cleaned up error routines so errors on the server side (before the client dies) should precipiate an IO ERROR on client.
- * Noted 140 block apparent limitation on the CoCo side - my Tandy-branded 26-3127B reliably throws IO ERRORS after 141 blocks, indicating a failed transfer to the client.  Happens with BASIC and ML programs via DLOAD and DLOADM.
+ * Noted 140 block limitation - my Tandy-branded 26-3127B reliably mismatches block count checksums during post-block negotiation at predictable points (particularly blocks 141 and 142), causing this program to abort the transfer.  Happens with BASIC and ML programs via DLOAD and DLOADM.
 
 01.01.02
 Removed confirmation byte read for each byte sent in sendBlock (commented out, at least for now).  This caused issues where handshake would stall when running on Cygwin / Windows Subsystem for Linux (WSL).
@@ -30,3 +30,8 @@ Removed unnecessary readSerialByte from the block send routine.
 Remove wait/no-wait behavior from readSerialByte.
 
 Added BIGTEST, which is a 139-block file to test longer transfers to the CoCo.
+
+01.01.04
+Modifed checksum mismatch behavior *in post-block transfer acknowledgement/negotiaton routine only* (blockAck) to continue on checksum mismatches.  The CoCo computes a different checksum for the block number payload that follows transfer of blocks 141 and 142 than dload_server does.  The program payload appears unaffected.  This is a temporary measure to help me debug the issue and correct this problem.
+
+Will dump acknowledgement blocks in which computed checksum on the server does not match that sent by the CoCo.
